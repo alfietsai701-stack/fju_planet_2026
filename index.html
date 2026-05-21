@@ -271,6 +271,8 @@ body.performer-mode .performer-app{display:block}
   margin-top:12px;
 }
 .performer-alert strong{display:block;margin-bottom:4px}
+.auth-error{display:none;color:var(--red);font-size:12px;margin-top:8px}
+.auth-error.show{display:block}
 .performer-list{display:grid;gap:8px;max-height:360px;overflow:auto}
 .mini-row{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:rgba(255,255,255,.035)}
 .mini-row.active{border-color:rgba(49,184,255,.55);background:rgba(49,184,255,.08)}
@@ -553,22 +555,33 @@ body.performer-mode .performer-app{display:block}
           </div>
         </div>
         <div class="panel-body">
-          <div class="field">
-            <label>選擇表演組別</label>
-            <select id="performerSelect" onchange="selectPerformer(this.value)"></select>
+          <div id="performerLoginPanel">
+            <div class="form-grid">
+              <div class="field"><label>帳號（學號）</label><input id="performerAccount" inputmode="numeric" autocomplete="username" placeholder="輸入學號"></div>
+              <div class="field"><label>密碼（電話）</label><input id="performerPassword" inputmode="tel" autocomplete="current-password" placeholder="輸入聯絡電話" type="password" onkeydown="if(event.key==='Enter')performerLogin()"></div>
+              <button class="btn primary" onclick="performerLogin()">登入表演人員端</button>
+            </div>
+            <div class="auth-error" id="performerLoginError">帳號或密碼錯誤，或此人不在目前表演名單中。</div>
           </div>
-          <div class="performer-status" style="margin-top:14px">
-            <div class="performer-stage" id="performerStage">Standby</div>
-            <div class="performer-title" id="performerTitle">請先選擇組別</div>
-            <div class="performer-detail" id="performerDetail">系統會顯示目前演出、你的候場順位，以及舞監傳送的訊息。</div>
-          </div>
-          <div class="performer-alert" id="performerLatest">
-            <strong>最新訊息</strong>
-            <span>尚無訊息</span>
-          </div>
-          <div class="control-row" style="grid-template-columns:repeat(2,1fr)">
-            <button class="btn blue" onclick="performerReady()">回報已到位</button>
-            <button class="btn hold" onclick="performerIssue()">回報異常</button>
+          <div id="performerConsole" style="display:none">
+            <div class="field">
+              <label>我的表演組別</label>
+              <select id="performerSelect" onchange="selectPerformer(this.value)"></select>
+            </div>
+            <div class="performer-status" style="margin-top:14px">
+              <div class="performer-stage" id="performerStage">Standby</div>
+              <div class="performer-title" id="performerTitle">請先選擇組別</div>
+              <div class="performer-detail" id="performerDetail">系統會顯示目前演出、你的候場順位，以及舞監傳送的訊息。</div>
+            </div>
+            <div class="performer-alert" id="performerLatest">
+              <strong>最新訊息</strong>
+              <span>尚無訊息</span>
+            </div>
+            <div class="control-row" style="grid-template-columns:repeat(3,1fr)">
+              <button class="btn blue" onclick="performerReady()">回報已到位</button>
+              <button class="btn hold" onclick="performerIssue()">回報異常</button>
+              <button class="btn" onclick="performerLogout()">登出</button>
+            </div>
           </div>
         </div>
       </div>
@@ -604,6 +617,7 @@ let remaining=0;
 let elapsed=0;
 let lastTick=Date.now();
 let selectedPerformer=0;
+let performerSession=null;
 
 const roster=[
   {team:"XG",title:"mascara",leader:"黃愷晴",members:["廖思淇","潘宣伊","許珈瑩","藍婷鈺","鄭欣瑜","王怡晴"]},
@@ -634,19 +648,33 @@ const roster=[
   {team:"izna",title:"SIGN",leader:"陳思妤",members:["吳芷彤","李品儀","呂尚哲","羅芷慈","蔡京樺"]},
   {team:"fromis_9",title:"LIKE YOU BETTER",leader:"張可沁",members:["徐于緊","簡心言","羅筠臻","曾加恩"]}
 ];
-const programs=roster.map((item,index)=>({
-  ...item,
-  people:item.members.length+1,
-  duration:4,
-  entrance:"待確認",
-  exit:"待確認",
-  mic:"不需要",
-  props:"待確認",
-  music:item.title,
-  note:`組長：${item.leader}；成員：${item.members.join("、")}`,
-  status:index===0?"live":index===1?"prep":"unready",
-  checks:{}
-}));
+const nameFixes={"張瑋棻":"張瑋桀","徐于緊":"徐于絜","王曼睿":"王曼蓉","畢詠姐":"畢詠姮","羅芷慈":"羅苙慈","葉曉億":"蔡曉億","蕭承宣":"蕭承萱","詹家玹":"詹家妘","郭鈺嬅":"郭鈺嬋"};
+const performerAccounts=[{"name":"俞映辰","studentId":"413330230","phone":"0984323658","dept":"社會二","programIndexes":[17]},{"name":"卓子涵","studentId":"414510148","phone":"0920669356","dept":"醫學系","programIndexes":[2,12]},{"name":"吳沛蓁","studentId":"414382187","phone":"0928282535","dept":"企一乙","programIndexes":[1,15]},{"name":"吳芯瑀","studentId":"414060090","phone":"0903906901","dept":"新傳一","programIndexes":[18]},{"name":"吳芷彤","studentId":"413200253","phone":"0968629926","dept":"心理二","programIndexes":[25]},{"name":"呂亮儀","studentId":"412130449","phone":"0989195795","dept":"西文三","programIndexes":[10]},{"name":"呂尚哲","studentId":"414290126","phone":"0972218382","dept":"光電一","programIndexes":[25]},{"name":"周采緹","studentId":"414581032","phone":"0919466076","dept":"智慧資安一","programIndexes":[10,13,21]},{"name":"喻祺雅","studentId":"413060184","phone":"0966836451","dept":"新傳二","programIndexes":[7,14,22]},{"name":"張可沁","studentId":"414401177","phone":"0978621182","dept":"資管一甲","programIndexes":[9,12,22,26]},{"name":"張婷婷","studentId":"414600266","phone":"0965402867","dept":"科創一","programIndexes":[10,16]},{"name":"張瑋桀","studentId":"413070488","phone":"0918002625","dept":"廣告一","programIndexes":[5,14,20,23]},{"name":"張芸榛","studentId":"414360438","phone":"0983661872","dept":"財法一","programIndexes":[2,5]},{"name":"徐于絜","studentId":"414401385","phone":"0901303363","dept":"資管一甲","programIndexes":[2,26]},{"name":"曾加恩","studentId":"413141122","phone":"0955025626","dept":"日文二","programIndexes":[6,10,26]},{"name":"朱芷芸","studentId":"414310196","phone":"0973580849","dept":"兒家ㄧ","programIndexes":[8,11]},{"name":"李佳襄","studentId":"413060392","phone":"0979562518","dept":"新聞二","programIndexes":[17,23]},{"name":"李品儀","studentId":"413351466","phone":"0966782799","dept":"經濟二","programIndexes":[3,25]},{"name":"李均庭","studentId":"413070335","phone":"0982868946","dept":"廣告二","programIndexes":[4,7,10,24]},{"name":"林宸鈺","studentId":"414402391","phone":"0916692872","dept":"資管一乙","programIndexes":[9]},{"name":"林志凌","studentId":"414060038","phone":"0900575167","dept":"新傳一","programIndexes":[8]},{"name":"林義翔","studentId":"414440109","phone":"0968012486","dept":"應美一","programIndexes":[9,13,24]},{"name":"林芊妤","studentId":"414360232","phone":"0971627628","dept":"財法一","programIndexes":[12,15]},{"name":"梁宇岑","studentId":"414492073","phone":"0907609370","dept":"護理一乙","programIndexes":[13]},{"name":"江家妤","studentId":"414422341","phone":"0961166318","dept":"統資一乙","programIndexes":[11,15,22]},{"name":"沈姿議","studentId":"414470568","phone":"0958340526","dept":"營養一","programIndexes":[16]},{"name":"游昕穎","studentId":"414070045","phone":"0900605106","dept":"廣告一","programIndexes":[2,20]},{"name":"游翔傑","studentId":"414191538","phone":"0909610199","dept":"化學一甲","programIndexes":[12]},{"name":"王亞暄","studentId":"414391396","phone":"0965464300","dept":"會計一甲","programIndexes":[15]},{"name":"王亞祺","studentId":"414351542","phone":"0984343657","dept":"經濟ㄧ甲","programIndexes":[23]},{"name":"王怡晴","studentId":"413261128","phone":"0955500655","dept":"資工二甲","programIndexes":[0,16,24]},{"name":"王曼蓉","studentId":"414301303","phone":"0976119160","dept":"餐旅管理系","programIndexes":[3]},{"name":"王立穎","studentId":"413261520","phone":"0905062443","dept":"資工二甲","programIndexes":[6,10,16,24]},{"name":"王羿涵","studentId":"414070552","phone":"0938783069","dept":"廣告一","programIndexes":[8]},{"name":"王語薰","studentId":"414421189","phone":"0908990908","dept":"統資一甲","programIndexes":[5,9,18]},{"name":"畢詠姮","studentId":"414172049","phone":"0906887965","dept":"資數一","programIndexes":[1]},{"name":"簡心言","studentId":"414422315","phone":"0902105728","dept":"統資一乙","programIndexes":[12,26]},{"name":"羅筠臻","studentId":"414421232","phone":"0975388667","dept":"統資一甲","programIndexes":[18,26]},{"name":"羅苙慈","studentId":"414492449","phone":"0908352823","dept":"護理一乙","programIndexes":[25]},{"name":"莊心慈","studentId":"414520260","phone":"0930119329","dept":"臨心一","programIndexes":[18]},{"name":"葉馥甄","studentId":"414120242","phone":"0968759282","dept":"法文一","programIndexes":[24]},{"name":"蔡京樺","studentId":"414261113","phone":"0972115327","dept":"資工一甲","programIndexes":[25]},{"name":"蔡曉億","studentId":"414060026","phone":"0925579319","dept":"新傳一","programIndexes":[18]},{"name":"蕭承萱","studentId":"414440355","phone":"0908572823","dept":"應美一","programIndexes":[3,13,20]},{"name":"藍婷鈺","studentId":"414440173","phone":"0978599875","dept":"應美一","programIndexes":[0,13,20]},{"name":"蘇晏琳","studentId":"414210372","phone":"0970216845","dept":"織設一","programIndexes":[4,9]},{"name":"許辰妍","studentId":"413330412","phone":"0933332613","dept":"社會二","programIndexes":[14,17,22]},{"name":"詹家妘","studentId":"413301306","phone":"0913197138","dept":"餐二甲","programIndexes":[7,14,19,22]},{"name":"謝昀蓁","studentId":"414310586","phone":"0938322543","dept":"兒家一","programIndexes":[8]},{"name":"賴亞恩","studentId":"414100565","phone":"0965210387","dept":"運管一","programIndexes":[23]},{"name":"趙家蓁","studentId":"414422535","phone":"0958131548","dept":"統資一乙","programIndexes":[12]},{"name":"辛彩薰","studentId":"413031121","phone":"0987212079","dept":"哲二愛","programIndexes":[2,15,23]},{"name":"邱千郡","studentId":"414520454","phone":"0908821202","dept":"臨心一","programIndexes":[2,15,23]},{"name":"郭恬聿","studentId":"414352510","phone":"0979636633","dept":"經濟一乙","programIndexes":[17]},{"name":"郭鈺嬋","studentId":"413150018","phone":"0905481328","dept":"義文二","programIndexes":[4,24]},{"name":"鄧芷涵","studentId":"413351404","phone":"0965312083","dept":"經濟二甲","programIndexes":[3]},{"name":"鄭欣瑜","studentId":"414440135","phone":"0933227726","dept":"應美一","programIndexes":[0,13,20,24]},{"name":"鍾侑恩","studentId":"414060284","phone":"0971819304","dept":"新傳一","programIndexes":[4,11]},{"name":"陳妍安","studentId":"414352182","phone":"0975719011","dept":"經濟一乙","programIndexes":[11,17]},{"name":"陳思妤","studentId":"413351521","phone":"0988066293","dept":"經二甲","programIndexes":[1,17,22,25]},{"name":"顏若雅","studentId":"414210530","phone":"0900026226","dept":"織設一","programIndexes":[9,13,16,19,24]},{"name":"魏席恩","studentId":"414221553","phone":"0928003565","dept":"織品服飾行銷一甲","programIndexes":[11]},{"name":"黃千穎","studentId":"413460401","phone":"0966786290","dept":"食科二","programIndexes":[6,16,19]}];
+const accountNameSet=new Set(performerAccounts.map(account=>account.name));
+const programs=roster.map((item,index)=>{
+  const correctedLeader=nameFixes[item.leader]||item.leader;
+  const correctedNames=[item.leader,...item.members].map(name=>nameFixes[name]||name);
+  const activeNames=correctedNames.filter(name=>accountNameSet.has(name));
+  const skippedNames=correctedNames.filter(name=>!accountNameSet.has(name));
+  const displayLeader=accountNameSet.has(correctedLeader)?correctedLeader:(activeNames[0]||correctedLeader);
+  return {
+    ...item,
+    id:`program-${index}`,
+    leader:displayLeader,
+    members:activeNames.filter(name=>name!==displayLeader),
+    skippedMembers:skippedNames,
+    people:activeNames.length,
+    duration:4,
+    entrance:"待確認",
+    exit:"待確認",
+    mic:"不需要",
+    props:"待確認",
+    music:item.title,
+    note:`有效人員：${activeNames.join("、")}${skippedNames.length?`；略過：${skippedNames.join("、")}`:""}`,
+    status:index===0?"live":index===1?"prep":"unready",
+    checks:{}
+  };
+});
 const notices=[];
 
 function pad(n){return String(n).padStart(2,"0")}
@@ -666,8 +694,10 @@ function programLabel(i){
 }
 function targetLabel(target){
   if(target==="all") return "全體";
-  const p=programs[Number(target)];
-  return p ? programLabel(Number(target)) : "未知組別";
+  const byId=programs.findIndex(p=>p.id===target);
+  if(byId>=0) return programLabel(byId);
+  const byIndex=programs[Number(target)];
+  return byIndex ? programLabel(Number(target)) : "未知組別";
 }
 function init(){
   remaining=current().duration*60;
@@ -830,7 +860,7 @@ function nextCue(){
   const next=programs[currentIndex+1];
   if(next&&next.status==="unready"){
     next.status="prep";
-    sendNotice(`請預備：你們是下一組，請完成最後確認。`,true,String(currentIndex+1));
+    sendNotice(`請預備：你們是下一組，請完成最後確認。`,true,next.id);
   }
   renderAll();
 }
@@ -863,9 +893,9 @@ function setCheck(i,key,checked){
   renderBackstage();
 }
 function populateEndpointSelectors(){
-  const options=[`<option value="all">全體表演人員</option>`].concat(programs.map((p,i)=>`<option value="${i}">${programLabel(i)}</option>`)).join("");
+  const options=[`<option value="all">全體表演人員</option>`].concat(programs.map((p,i)=>`<option value="${p.id}">${programLabel(i)}</option>`)).join("");
   document.getElementById("noticeTarget").innerHTML=options;
-  document.getElementById("performerSelect").innerHTML=programs.map((p,i)=>`<option value="${i}">${programLabel(i)}</option>`).join("");
+  document.getElementById("performerSelect").innerHTML="";
 }
 function showPerformerMode(){
   document.body.classList.add("performer-mode");
@@ -875,22 +905,72 @@ function showAdminMode(){
   document.body.classList.remove("performer-mode");
 }
 function selectPerformer(value){
+  if(performerSession&&!performerSessionIndexes().includes(Number(value))) return;
   selectedPerformer=Number(value);
   renderPerformer();
 }
 function performerNoticesFor(i){
-  return notices.filter(n=>(n.target || "all")==="all" || String(n.target)===String(i));
+  const id=programs[i].id;
+  return notices.filter(n=>(n.target || "all")==="all" || n.target===id || String(n.target)===String(i));
+}
+function normalizeCredential(value){
+  return String(value||"").replace(/\D/g,"");
+}
+function performerLogin(){
+  const account=normalizeCredential(document.getElementById("performerAccount").value);
+  const password=normalizeCredential(document.getElementById("performerPassword").value);
+  const error=document.getElementById("performerLoginError");
+  const found=performerAccounts.find(user=>user.studentId===account&&normalizeCredential(user.phone)===password);
+  if(!found){
+    error.classList.add("show");
+    return;
+  }
+  performerSession=found;
+  selectedPerformer=performerSessionIndexes()[0];
+  document.getElementById("performerPassword").value="";
+  error.classList.remove("show");
+  populatePerformerGroups();
+  renderPerformer();
+}
+function performerLogout(){
+  performerSession=null;
+  document.getElementById("performerAccount").value="";
+  document.getElementById("performerPassword").value="";
+  renderPerformer();
+}
+function populatePerformerGroups(){
+  const select=document.getElementById("performerSelect");
+  select.innerHTML=performerSessionIndexes().map(i=>`<option value="${i}">${programLabel(i)}</option>`).join("");
+  select.value=String(selectedPerformer);
+}
+function performerSessionIndexes(){
+  if(!performerSession) return [];
+  return performerSession.programIndexes.map(originalIndex=>programs.findIndex(p=>p.id===`program-${originalIndex}`)).filter(index=>index>=0);
 }
 function renderPerformer(){
   const select=document.getElementById("performerSelect");
   if(!select) return;
+  const loginPanel=document.getElementById("performerLoginPanel");
+  const consolePanel=document.getElementById("performerConsole");
+  if(!performerSession){
+    loginPanel.style.display="block";
+    consolePanel.style.display="none";
+    document.getElementById("performerQueue").innerHTML=`<div class="empty">登入後顯示候場資訊</div>`;
+    document.getElementById("performerNotices").innerHTML=`<div class="empty">登入後顯示個人通知</div>`;
+    return;
+  }
+  loginPanel.style.display="none";
+  consolePanel.style.display="block";
+  const allowedIndexes=performerSessionIndexes();
+  if(!allowedIndexes.includes(selectedPerformer)) selectedPerformer=allowedIndexes[0];
+  populatePerformerGroups();
   select.value=String(selectedPerformer);
   const p=programs[selectedPerformer];
   const distance=selectedPerformer-currentIndex;
   const stage=distance<0?"已演出結束":distance===0?"現在演出":distance===1?"下一組預備":distance===2?"下下組待命":`前面還有 ${distance} 組`;
   document.getElementById("performerStage").textContent=stage;
   document.getElementById("performerTitle").textContent=`${p.team}《${p.title}》`;
-  document.getElementById("performerDetail").textContent=`第 ${selectedPerformer+1} 組 · ${p.people} 人 · 組長 ${p.leader} · 狀態 ${statusText[p.status]} · 目前演出 ${current().team}《${current().title}》`;
+  document.getElementById("performerDetail").textContent=`${performerSession.name}（${performerSession.dept}） · 第 ${selectedPerformer+1} 組 · ${p.people} 人 · 組長 ${p.leader} · 狀態 ${statusText[p.status]} · 目前演出 ${current().team}《${current().title}》`;
   const myNotices=performerNoticesFor(selectedPerformer);
   const latest=myNotices[0];
   document.getElementById("performerLatest").innerHTML=latest ? `<strong>最新訊息</strong><span>${latest.text}</span>` : `<strong>最新訊息</strong><span>尚無訊息</span>`;
@@ -906,12 +986,14 @@ function renderPerformer(){
   document.getElementById("performerQueue").innerHTML=rows;
 }
 function performerReady(){
+  if(!performerSession) return;
   programs[selectedPerformer].checks={...programs[selectedPerformer].checks,performer:true};
-  sendNotice(`${programLabel(selectedPerformer)} 回報：表演者已到位。`,true,"all");
+  sendNotice(`${performerSession.name} 回報：${programLabel(selectedPerformer)} 表演者已到位。`,true,"all");
   renderAll();
 }
 function performerIssue(){
-  sendNotice(`${programLabel(selectedPerformer)} 回報異常：請舞監確認。`,true,"all");
+  if(!performerSession) return;
+  sendNotice(`${performerSession.name} 回報異常：${programLabel(selectedPerformer)} 請舞監確認。`,true,"all");
 }
 function moveProgram(i,dir){
   const ni=i+dir;
@@ -922,6 +1004,7 @@ function moveProgram(i,dir){
 }
 function addProgram(){
   programs.push({
+    id:`program-${Date.now()}`,
     title:document.getElementById("fTitle").value || "未命名節目",
     team:document.getElementById("fTeam").value || "未命名團體",
     duration:Number(document.getElementById("fDuration").value)||4,

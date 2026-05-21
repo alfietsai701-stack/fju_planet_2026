@@ -498,14 +498,48 @@ let remaining=0;
 let elapsed=0;
 let lastTick=Date.now();
 
-const programs=[
-  {title:"Opening VCR",team:"主辦組",duration:2,people:0,entrance:"-",exit:"-",mic:"不需要",props:"不需要",music:"op_vcr.mp4",note:"燈光全暗，VCR 結束後直接進 Host",status:"live",checks:{}},
-  {title:"One More Time",team:"ADP",duration:4,people:5,entrance:"Stage Left",exit:"Stage Right",mic:"不需要",props:"不需要",music:"ADP_one_more_time.wav",note:"Fade in 3 秒，結尾 blackout",status:"prep",checks:{performer:true,props:true}},
-  {title:"Black Mamba",team:"Aespa",duration:4,people:4,entrance:"Stage Right",exit:"Stage Right",mic:"不需要",props:"不需要",music:"aespa_black_mamba.wav",note:"藍綠光，副歌加強 strobe",status:"unready",checks:{}},
-  {title:"主持串場",team:"Host",duration:3,people:2,entrance:"中央",exit:"Stage Left",mic:"手持 2 支",props:"手卡",music:"-",note:"確認下一組已 Ready 再收尾",status:"unready",checks:{}},
-  {title:"Mascara",team:"XG",duration:4,people:7,entrance:"Stage Left",exit:"Stage Right",mic:"不需要",props:"不需要",music:"xg_mascara.wav",note:"紅白追光，最後定格 2 秒",status:"unready",checks:{}},
-  {title:"中場休息",team:"All Staff",duration:10,people:0,entrance:"-",exit:"-",mic:"廣播",props:"不需要",music:"intermission_playlist",note:"開演倒數 3 分鐘廣播",status:"unready",checks:{}}
+const roster=[
+  {team:"XG",title:"mascara",leader:"黃愷晴",members:["廖思淇","潘宣伊","許珈瑩","藍婷鈺","鄭欣瑜","王怡晴"]},
+  {team:"aespa",title:"Armageddon",leader:"陳思妤",members:["蔡秉軒","吳沛蓁","畢詠姐"]},
+  {team:"IVE",title:"XOXZ",leader:"游昕穎",members:["邱千郡","卓子涵","徐于緊","辛彩薰","張芸榛"]},
+  {team:"aespa",title:"whiplash",leader:"蕭承萱",members:["李品儀","鄧芷涵","王曼睿"]},
+  {team:"txt",title:"upside down kiss",leader:"潘宣伊",members:["鍾侑恩","李均庭","郭鈺嬅","蘇晏琳"]},
+  {team:"Boynextdoor",title:"Hollywood Action",leader:"張瑋棻",members:["王語薰","張芸榛","蔡秉軒","謝佩珊","張佳甯"]},
+  {team:"Aespa",title:"Black mamba",leader:"黃愷晴",members:["曾加恩","王立穎","黃千穎"]},
+  {team:"AOA",title:"Come see me",leader:"許珈瑩",members:["廖思淇","詹家玹","喻祺雅","李均庭"]},
+  {team:"aespa",title:"rich man",leader:"朱芷芸",members:["謝昀蓁","王羿涵","林志凌"]},
+  {team:"NCT DREAM",title:"beat it up",leader:"顏若雅",members:["張佳甯","王語薰","林宸鈺","張可沁","林義翔","蘇晏琳"]},
+  {team:"Twice",title:"What is love",leader:"黃愷晴",members:["呂亮儀","張婷婷","曾加恩","許珈瑩","周采緹","李均庭","潘宣伊","王立穎"]},
+  {team:"boynextdoor",title:"123 78",leader:"陳妍安",members:["魏席恩","謝佩珊","鍾侑恩","江家妤","朱芷芸"]},
+  {team:"GFRIEND",title:"Me gustas tu",leader:"簡心言",members:["張可沁","卓子涵","趙家蓁","游翔傑","林芊妤"]},
+  {team:"EXO",title:"The eve",leader:"林義翔",members:["蕭承宣","藍婷鈺","鄭欣瑜","周采緹","梁宇岑","顏若雅"]},
+  {team:"ITZY",title:"kiss&tell",leader:"廖思淇",members:["詹家玹","許辰妍","喻祺雅","張瑋棻"]},
+  {team:"IVE",title:"Rebel Heart",leader:"江家妤",members:["辛彩薰","吳沛蓁","邱千郡","王亞暄","林芊妤"]},
+  {team:"Gp999",title:"Snake",leader:"黃愷晴",members:["張婷婷","顏若雅","王立穎","王怡晴","黃千穎","沈姿議"]},
+  {team:"NMIXX",title:"Blue Valentine",leader:"許辰妍",members:["陳思妤","郭恬聿","俞映辰","陳妍安","李佳襄"]},
+  {team:"RIIZE",title:"bag bad back",leader:"葉曉億",members:["王語薰","羅筠臻","張佳甯","吳芯瑀","莊心慈"]},
+  {team:"Meovv",title:"body",leader:"詹家玹",members:["黃愷晴","顏若雅","黃千穎","蔡秉軒"]},
+  {team:"Iz*one",title:"rumor",leader:"鄭欣瑜",members:["藍婷鈺","張瑋棻","蕭承萱","游昕穎"]},
+  {team:"ADP",title:"One more time",leader:"張佳甯",members:["潘宣伊","廖思淇","許珈瑩","周采緹"]},
+  {team:"Babymonster",title:"Psycho",leader:"詹家玹",members:["喻祺雅","陳思妤","許辰妍","張可沁","江家妤"]},
+  {team:"IVE",title:"ELEVEN",leader:"賴亞恩",members:["邱千郡","辛彩薰","李佳襄","張瑋棻","王亞祺"]},
+  {team:"seventeen",title:"god of music",leader:"潘宣伊",members:["廖思淇","張佳甯","顏若雅","許珈瑩","王怡晴","李均庭","葉馥甄","鄭欣瑜","林義翔","郭鈺嬅","王立穎"]},
+  {team:"izna",title:"SIGN",leader:"陳思妤",members:["吳芷彤","李品儀","呂尚哲","羅芷慈","蔡京樺"]},
+  {team:"fromis_9",title:"LIKE YOU BETTER",leader:"張可沁",members:["徐于緊","簡心言","羅筠臻","曾加恩"]}
 ];
+const programs=roster.map((item,index)=>({
+  ...item,
+  people:item.members.length+1,
+  duration:4,
+  entrance:"待確認",
+  exit:"待確認",
+  mic:"不需要",
+  props:"待確認",
+  music:item.title,
+  note:`組長：${item.leader}；成員：${item.members.join("、")}`,
+  status:index===0?"live":index===1?"prep":"unready",
+  checks:{}
+}));
 const notices=[];
 
 function pad(n){return String(n).padStart(2,"0")}
@@ -570,6 +604,7 @@ function renderCue(){
   document.getElementById("nowMeta").innerHTML=[
     `長度 ${p.duration} 分`,
     `人數 ${p.people}`,
+    `組長 ${p.leader || "-"}`,
     `上場 ${p.entrance}`,
     `下場 ${p.exit}`,
     `麥克風 ${p.mic}`,
@@ -596,7 +631,7 @@ function renderQueue(){
       <div class="queue-no">${i===0?"NOW":`+${i}`}</div>
       <div>
         <div class="queue-title">${p.title}</div>
-        <div class="queue-sub">${p.team} · ${p.music || "未設定音檔"}</div>
+        <div class="queue-sub">${p.team} · ${p.people} 人 · 組長 ${p.leader || "-"}</div>
       </div>
       <span class="status ${statusClass[p.status]}">${statusText[p.status]}</span>
     </div>
@@ -609,7 +644,7 @@ function renderProgram(){
       <div class="queue-no">${pad(i+1)}</div>
       <div>
         <div class="queue-title">${p.title}</div>
-        <div class="queue-sub">${p.team} · ${p.note || "無備註"}</div>
+        <div class="queue-sub">${p.team} · ${p.people} 人 · ${p.note || "無備註"}</div>
       </div>
       <span class="chip">${p.duration} 分</span>
       <span class="status ${statusClass[p.status]} hide-sm">${statusText[p.status]}</span>
@@ -627,7 +662,7 @@ function renderBackstage(){
     if(all&&p.status==="unready") p.status="ready";
     return `
       <div class="check-card ${all?"ready":""}">
-        <div class="check-label">${pad(i+1)} · ${p.team}</div>
+        <div class="check-label">${pad(i+1)} · ${p.team} · ${p.people} 人</div>
         <div class="check-value">${p.title}</div>
         ${["performer:表演者已到位","props:道具已完成","mic:麥克風確認","music:音樂測試完成"].map(item=>{
           const [key,label]=item.split(":");

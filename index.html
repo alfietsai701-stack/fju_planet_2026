@@ -47,6 +47,12 @@ body::before{
 button,input,textarea,select{font:inherit}
 button{cursor:pointer}
 .app{min-height:100vh;display:grid;grid-template-columns:260px minmax(0,1fr)}
+body:not(.admin-auth):not(.performer-mode) .app{display:none}
+.admin-login{display:none;min-height:100vh;padding:18px;place-items:center}
+body:not(.admin-auth):not(.performer-mode) .admin-login{display:grid}
+.login-panel{width:min(420px,100%);border:1px solid var(--line);border-radius:8px;background:rgba(16,21,29,.9);box-shadow:var(--shadow);padding:24px}
+.login-title{font-family:"Bebas Neue",sans-serif;font-size:46px;line-height:.9}
+.login-sub{font-size:13px;color:var(--muted);margin:8px 0 20px}
 .sidebar{
   position:sticky;
   top:0;
@@ -325,6 +331,20 @@ body.performer-mode .performer-app{display:block}
 </style>
 </head>
 <body>
+<div class="admin-login">
+  <div class="login-panel">
+    <div class="login-title">StageFlow</div>
+    <div class="login-sub">管理端登入 · 舞監與工作人員使用</div>
+    <div class="field">
+      <label>管理密碼</label>
+      <input id="adminPassword" type="password" autocomplete="current-password" placeholder="輸入管理密碼" onkeydown="if(event.key==='Enter')adminLogin()">
+    </div>
+    <button class="btn primary" style="width:100%;margin-top:12px" onclick="adminLogin()">進入管理端</button>
+    <button class="btn" style="width:100%;margin-top:8px" onclick="showPerformerMode()">前往表演人員端</button>
+    <div class="auth-error" id="adminLoginError">管理密碼錯誤，請再試一次。</div>
+  </div>
+</div>
+
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
@@ -360,6 +380,7 @@ body.performer-mode .performer-app{display:block}
         <div class="mode-switch" style="margin-top:10px">
           <button class="btn slim blue" onclick="showAdminMode()">管理端</button>
           <button class="btn slim" onclick="showPerformerMode()">表演人員端</button>
+          <button class="btn slim" onclick="adminLogout()">登出</button>
         </div>
       </div>
     </div>
@@ -610,6 +631,7 @@ body.performer-mode .performer-app{display:block}
 <script>
 const statusText={unready:"未準備",prep:"準備中",ready:"Ready",live:"演出中",done:"結束"};
 const statusClass={unready:"s-unready",prep:"s-prep",ready:"s-ready",live:"s-live",done:"s-done"};
+const ADMIN_PASSWORD="planet2026";
 let currentIndex=0;
 let hold=false;
 let emergency=false;
@@ -618,6 +640,7 @@ let elapsed=0;
 let lastTick=Date.now();
 let selectedPerformer=0;
 let performerSession=null;
+let adminSession=false;
 
 const roster=[
   {team:"XG",title:"mascara",leader:"黃愷晴",members:["廖思淇","潘宣伊","許珈瑩","藍婷鈺","鄭欣瑜","王怡晴"]},
@@ -897,12 +920,32 @@ function populateEndpointSelectors(){
   document.getElementById("noticeTarget").innerHTML=options;
   document.getElementById("performerSelect").innerHTML="";
 }
+function adminLogin(){
+  const input=document.getElementById("adminPassword");
+  const error=document.getElementById("adminLoginError");
+  if(input.value!==ADMIN_PASSWORD){
+    error.classList.add("show");
+    return;
+  }
+  adminSession=true;
+  input.value="";
+  error.classList.remove("show");
+  document.body.classList.add("admin-auth");
+  document.body.classList.remove("performer-mode");
+}
+function adminLogout(){
+  adminSession=false;
+  document.body.classList.remove("admin-auth");
+  document.body.classList.remove("performer-mode");
+}
 function showPerformerMode(){
   document.body.classList.add("performer-mode");
   renderPerformer();
 }
 function showAdminMode(){
   document.body.classList.remove("performer-mode");
+  if(adminSession) document.body.classList.add("admin-auth");
+  else document.body.classList.remove("admin-auth");
 }
 function selectPerformer(value){
   if(performerSession&&!performerSessionIndexes().includes(Number(value))) return;

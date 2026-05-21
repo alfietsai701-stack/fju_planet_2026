@@ -94,6 +94,7 @@ button{cursor:pointer}
 }
 .clock-time{font-family:"Bebas Neue",sans-serif;font-size:32px;letter-spacing:1px}
 .clock-date{font-size:12px;color:var(--muted);margin-top:-2px}
+.mode-switch{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .view{display:none}
 .view.active{display:block}
 .grid{display:grid;gap:14px}
@@ -240,9 +241,42 @@ button{cursor:pointer}
   padding:10px 12px;
 }
 .notice.emergency{border-left-color:var(--red);background:rgba(255,66,100,.09)}
+.notice.private{border-left-color:var(--lime);background:rgba(215,255,69,.07)}
 .notice-time{font-size:11px;color:var(--dim);margin-bottom:3px}
 .notice-text{font-weight:700;line-height:1.45}
+.notice-target{font-size:11px;color:var(--muted);margin-top:6px}
 .notify-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.performer-app{display:none;min-height:100vh;padding:18px}
+body.performer-mode .app{display:none}
+body.performer-mode .performer-app{display:block}
+.performer-shell{max-width:860px;margin:0 auto}
+.performer-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:18px}
+.performer-brand{font-family:"Bebas Neue",sans-serif;font-size:42px;line-height:.9}
+.performer-sub{font-size:13px;color:var(--muted);margin-top:6px}
+.performer-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:14px}
+.performer-status{
+  border:1px solid rgba(49,184,255,.36);
+  border-radius:8px;
+  padding:16px;
+  background:rgba(49,184,255,.08);
+}
+.performer-stage{font-size:12px;color:var(--cyan);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+.performer-title{font-size:34px;font-weight:900;line-height:1.1}
+.performer-detail{font-size:14px;color:var(--muted);line-height:1.7;margin-top:10px}
+.performer-alert{
+  border:1px solid rgba(215,255,69,.36);
+  background:rgba(215,255,69,.08);
+  border-radius:8px;
+  padding:14px;
+  margin-top:12px;
+}
+.performer-alert strong{display:block;margin-bottom:4px}
+.performer-list{display:grid;gap:8px;max-height:360px;overflow:auto}
+.mini-row{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:rgba(255,255,255,.035)}
+.mini-row.active{border-color:rgba(49,184,255,.55);background:rgba(49,184,255,.08)}
+.mini-row.mine{border-color:rgba(215,255,69,.5)}
+.mini-title{font-weight:800}
+.mini-sub{font-size:12px;color:var(--muted);margin-top:4px}
 .emergency-strip{
   display:none;
   position:fixed;
@@ -279,8 +313,10 @@ button{cursor:pointer}
   .main{padding:14px}
   .topbar{align-items:flex-start;flex-direction:column}
   .clock{text-align:left;width:100%}
+  .mode-switch{justify-content:flex-start}
   .nav{grid-template-columns:1fr 1fr}
   .control-row,.form-grid,.backstage-grid,.notify-grid,.metrics{grid-template-columns:1fr}
+  .performer-grid,.performer-top{grid-template-columns:1fr;display:grid}
   .page-title h1{font-size:42px}
   .timer-main{font-size:62px}
 }
@@ -319,6 +355,10 @@ button{cursor:pointer}
       <div class="clock">
         <div class="clock-time" id="clockTime">00:00:00</div>
         <div class="clock-date" id="clockDate">StageFlow Ready</div>
+        <div class="mode-switch" style="margin-top:10px">
+          <button class="btn slim blue" onclick="showAdminMode()">管理端</button>
+          <button class="btn slim" onclick="showPerformerMode()">表演人員端</button>
+        </div>
       </div>
     </div>
 
@@ -440,12 +480,24 @@ button{cursor:pointer}
             </div>
           </div>
           <div class="panel-body">
+            <div class="form-grid" style="margin-bottom:14px">
+              <div class="field">
+                <label>發送對象</label>
+                <select id="noticeTarget"></select>
+              </div>
+              <div class="field">
+                <label>自訂訊息</label>
+                <input id="noticeCustom" placeholder="例如：請從 Stage Left 待命">
+              </div>
+              <button class="btn primary" onclick="sendCustomNotice()">傳送訊息</button>
+              <button class="btn hold" onclick="sendTargetedNotice('延遲通知：流程延後，請先原地待命。')">延遲</button>
+            </div>
             <div class="notify-grid">
-              <button class="btn blue" onclick="sendNotice('下一組準備，請後台確認人員與道具。')">下一組準備</button>
-              <button class="btn blue" onclick="sendNotice('三分鐘待機，音控與燈光請完成最後確認。')">三分鐘待機</button>
-              <button class="btn hold" onclick="sendNotice('Hold：流程暫停，所有組別原地待命。')">Hold</button>
-              <button class="btn blue" onclick="sendNotice('立即集合，相關工作人員請到舞監台。')">立即集合</button>
-              <button class="btn" onclick="sendNotice('重新上場，請表演者依原上場方向預備。')">重新上場</button>
+              <button class="btn blue" onclick="sendTargetedNotice('下一組準備，請後台確認人員與道具。')">下一組準備</button>
+              <button class="btn blue" onclick="sendTargetedNotice('三分鐘待機，音控與燈光請完成最後確認。')">三分鐘待機</button>
+              <button class="btn hold" onclick="sendTargetedNotice('Hold：流程暫停，所有組別原地待命。')">Hold</button>
+              <button class="btn blue" onclick="sendTargetedNotice('立即集合，相關工作人員請到舞監台。')">立即集合</button>
+              <button class="btn" onclick="sendTargetedNotice('重新上場，請表演者依原上場方向預備。')">重新上場</button>
               <button class="btn danger" onclick="triggerEmergency('全體通知：緊急狀況，所有裝置進入警示模式。')">全體緊急通知</button>
             </div>
           </div>
@@ -480,6 +532,60 @@ button{cursor:pointer}
   </main>
 </div>
 
+<div class="performer-app">
+  <div class="performer-shell">
+    <div class="performer-top">
+      <div>
+        <div class="performer-brand">StageFlow</div>
+        <div class="performer-sub">表演人員端 · 接收舞監通知與候場狀態</div>
+      </div>
+      <div class="mode-switch">
+        <button class="btn slim" onclick="showAdminMode()">管理端</button>
+        <button class="btn slim blue" onclick="showPerformerMode()">表演人員端</button>
+      </div>
+    </div>
+    <div class="grid performer-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">我的演出狀態</div>
+            <div class="panel-kicker">選擇組別後會只顯示與你相關的通知</div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <label>選擇表演組別</label>
+            <select id="performerSelect" onchange="selectPerformer(this.value)"></select>
+          </div>
+          <div class="performer-status" style="margin-top:14px">
+            <div class="performer-stage" id="performerStage">Standby</div>
+            <div class="performer-title" id="performerTitle">請先選擇組別</div>
+            <div class="performer-detail" id="performerDetail">系統會顯示目前演出、你的候場順位，以及舞監傳送的訊息。</div>
+          </div>
+          <div class="performer-alert" id="performerLatest">
+            <strong>最新訊息</strong>
+            <span>尚無訊息</span>
+          </div>
+          <div class="control-row" style="grid-template-columns:repeat(2,1fr)">
+            <button class="btn blue" onclick="performerReady()">回報已到位</button>
+            <button class="btn hold" onclick="performerIssue()">回報異常</button>
+          </div>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">目前流程</div></div>
+          <div class="panel-body"><div class="performer-list" id="performerQueue"></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">我的通知</div></div>
+          <div class="panel-body"><div class="notice-list" id="performerNotices"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="emergency-strip" id="emergencyOverlay">
   <div class="emergency-box">
     <div class="emergency-title">EMERGENCY</div>
@@ -497,6 +603,7 @@ let emergency=false;
 let remaining=0;
 let elapsed=0;
 let lastTick=Date.now();
+let selectedPerformer=0;
 
 const roster=[
   {team:"XG",title:"mascara",leader:"黃愷晴",members:["廖思淇","潘宣伊","許珈瑩","藍婷鈺","鄭欣瑜","王怡晴"]},
@@ -553,8 +660,18 @@ function nowStamp(){
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 function current(){return programs[currentIndex] || programs[0]}
+function programLabel(i){
+  const p=programs[i];
+  return `${pad(i+1)} ${p.team} - ${p.title}`;
+}
+function targetLabel(target){
+  if(target==="all") return "全體";
+  const p=programs[Number(target)];
+  return p ? programLabel(Number(target)) : "未知組別";
+}
 function init(){
   remaining=current().duration*60;
+  populateEndpointSelectors();
   wireNav();
   renderAll();
   tickClock();
@@ -594,6 +711,7 @@ function renderAll(){
   renderProgram();
   renderBackstage();
   renderNotices();
+  renderPerformer();
 }
 function renderCue(){
   const p=current();
@@ -678,13 +796,29 @@ function renderNotices(){
   const html=notices.map(noticeHtml).join("") || `<div class="empty">尚無通知</div>`;
   document.getElementById("noticeList").innerHTML=html;
   document.getElementById("cueNotices").innerHTML=notices.slice(0,5).map(noticeHtml).join("") || `<div class="empty">尚無通知</div>`;
+  renderPerformer();
 }
 function noticeHtml(n){
-  return `<div class="notice ${n.emergency?"emergency":""}"><div class="notice-time">${n.time}</div><div class="notice-text">${n.text}</div></div>`;
+  const privateClass=n.target&&n.target!=="all"?" private":"";
+  return `<div class="notice ${n.emergency?"emergency":""}${privateClass}"><div class="notice-time">${n.time}</div><div class="notice-text">${n.text}</div><div class="notice-target">對象：${targetLabel(n.target || "all")}</div></div>`;
 }
-function sendNotice(text,rerender=true){
-  notices.unshift({time:nowStamp(),text,emergency:false});
+function sendNotice(text,rerender=true,target="all"){
+  notices.unshift({time:nowStamp(),text,emergency:false,target});
   if(rerender) renderNotices();
+}
+function selectedNoticeTarget(){
+  const el=document.getElementById("noticeTarget");
+  return el ? el.value : "all";
+}
+function sendTargetedNotice(text){
+  sendNotice(text,true,selectedNoticeTarget());
+}
+function sendCustomNotice(){
+  const input=document.getElementById("noticeCustom");
+  const text=(input.value || "").trim();
+  if(!text) return;
+  sendTargetedNotice(text);
+  input.value="";
 }
 function nextCue(){
   if(emergency) return;
@@ -694,7 +828,10 @@ function nextCue(){
   remaining=current().duration*60;
   sendNotice(`現在演出：${current().team}《${current().title}》。`);
   const next=programs[currentIndex+1];
-  if(next&&next.status==="unready") next.status="prep";
+  if(next&&next.status==="unready"){
+    next.status="prep";
+    sendNotice(`請預備：你們是下一組，請完成最後確認。`,true,String(currentIndex+1));
+  }
   renderAll();
 }
 function prevCue(){
@@ -725,6 +862,57 @@ function setCheck(i,key,checked){
   programs[i].checks={...programs[i].checks,[key]:checked};
   renderBackstage();
 }
+function populateEndpointSelectors(){
+  const options=[`<option value="all">全體表演人員</option>`].concat(programs.map((p,i)=>`<option value="${i}">${programLabel(i)}</option>`)).join("");
+  document.getElementById("noticeTarget").innerHTML=options;
+  document.getElementById("performerSelect").innerHTML=programs.map((p,i)=>`<option value="${i}">${programLabel(i)}</option>`).join("");
+}
+function showPerformerMode(){
+  document.body.classList.add("performer-mode");
+  renderPerformer();
+}
+function showAdminMode(){
+  document.body.classList.remove("performer-mode");
+}
+function selectPerformer(value){
+  selectedPerformer=Number(value);
+  renderPerformer();
+}
+function performerNoticesFor(i){
+  return notices.filter(n=>(n.target || "all")==="all" || String(n.target)===String(i));
+}
+function renderPerformer(){
+  const select=document.getElementById("performerSelect");
+  if(!select) return;
+  select.value=String(selectedPerformer);
+  const p=programs[selectedPerformer];
+  const distance=selectedPerformer-currentIndex;
+  const stage=distance<0?"已演出結束":distance===0?"現在演出":distance===1?"下一組預備":distance===2?"下下組待命":`前面還有 ${distance} 組`;
+  document.getElementById("performerStage").textContent=stage;
+  document.getElementById("performerTitle").textContent=`${p.team}《${p.title}》`;
+  document.getElementById("performerDetail").textContent=`第 ${selectedPerformer+1} 組 · ${p.people} 人 · 組長 ${p.leader} · 狀態 ${statusText[p.status]} · 目前演出 ${current().team}《${current().title}》`;
+  const myNotices=performerNoticesFor(selectedPerformer);
+  const latest=myNotices[0];
+  document.getElementById("performerLatest").innerHTML=latest ? `<strong>最新訊息</strong><span>${latest.text}</span>` : `<strong>最新訊息</strong><span>尚無訊息</span>`;
+  document.getElementById("performerNotices").innerHTML=myNotices.map(noticeHtml).join("") || `<div class="empty">尚無訊息</div>`;
+  const start=Math.max(0,Math.min(selectedPerformer-2,currentIndex));
+  const rows=programs.slice(start,start+7).map((item,offset)=>{
+    const i=start+offset;
+    return `<div class="mini-row ${i===currentIndex?"active":""} ${i===selectedPerformer?"mine":""}">
+      <div class="mini-title">${pad(i+1)} ${item.team}《${item.title}》</div>
+      <div class="mini-sub">${i===currentIndex?"現在演出":i===selectedPerformer?"我的組別":statusText[item.status]} · ${item.people} 人</div>
+    </div>`;
+  }).join("");
+  document.getElementById("performerQueue").innerHTML=rows;
+}
+function performerReady(){
+  programs[selectedPerformer].checks={...programs[selectedPerformer].checks,performer:true};
+  sendNotice(`${programLabel(selectedPerformer)} 回報：表演者已到位。`,true,"all");
+  renderAll();
+}
+function performerIssue(){
+  sendNotice(`${programLabel(selectedPerformer)} 回報異常：請舞監確認。`,true,"all");
+}
 function moveProgram(i,dir){
   const ni=i+dir;
   if(ni<0||ni>=programs.length||i===currentIndex||ni===currentIndex) return;
@@ -744,16 +932,19 @@ function addProgram(){
     props:document.getElementById("fProps").value,
     music:document.getElementById("fMusic").value,
     note:document.getElementById("fNote").value,
+    leader:"待確認",
+    members:[],
     status:"unready",
     checks:{}
   });
+  populateEndpointSelectors();
   sendNotice("新增節目已加入 Cue 表。");
   renderAll();
 }
 function triggerEmergency(message){
   emergency=true;
   hold=true;
-  notices.unshift({time:nowStamp(),text:message,emergency:true});
+  notices.unshift({time:nowStamp(),text:message,emergency:true,target:"all"});
   document.getElementById("emergencyMsg").textContent=message;
   document.getElementById("emergencyOverlay").classList.add("show");
   renderAll();

@@ -409,6 +409,7 @@ body.performer-mode .performer-app{display:block}
               </div>
             </div>
             <div class="control-row">
+              <button class="btn primary" onclick="startFlow()" id="startBtn">開始演出</button>
               <button class="btn primary" onclick="nextCue()">下一組</button>
               <button class="btn" onclick="prevCue()">上一組</button>
               <button class="btn hold" onclick="toggleHold()" id="holdBtn">Hold</button>
@@ -635,6 +636,7 @@ const ADMIN_PASSWORD="planet2026";
 let currentIndex=0;
 let hold=false;
 let emergency=false;
+let flowStarted=false;
 let remaining=0;
 let elapsed=0;
 let lastTick=Date.now();
@@ -694,7 +696,7 @@ const programs=roster.map((item,index)=>{
     props:"待確認",
     music:item.title,
     note:`有效人員：${activeNames.join("、")}${skippedNames.length?`；略過：${skippedNames.join("、")}`:""}`,
-    status:index===0?"live":index===1?"prep":"unready",
+    status:index===0?"ready":index===1?"prep":"unready",
     checks:{}
   };
 });
@@ -752,7 +754,7 @@ function tick(){
   const delta=Math.floor((now-lastTick)/1000);
   if(delta>0){
     lastTick=now;
-    if(!hold&&!emergency&&current().status==="live"){
+    if(flowStarted&&!hold&&!emergency&&current().status==="live"){
       remaining-=delta;
       elapsed+=delta;
       renderCue();
@@ -771,7 +773,7 @@ function renderCue(){
   document.getElementById("nowTitle").textContent=p.title;
   document.getElementById("nowTeam").textContent=p.team;
   document.getElementById("sideNow").textContent=p.title;
-  document.getElementById("sideMeta").textContent=`${p.team} · ${statusText[p.status]}`;
+  document.getElementById("sideMeta").textContent=`${p.team} · ${flowStarted?statusText[p.status]:"待機未開始"}`;
   document.getElementById("nowMeta").innerHTML=[
     `長度 ${p.duration} 分`,
     `人數 ${p.people}`,
@@ -784,15 +786,17 @@ function renderCue(){
   const cd=document.getElementById("countdown");
   cd.textContent=fmt(remaining);
   cd.className="timer-main"+(remaining<0?" over":remaining<=30?" warning":"");
-  document.getElementById("timerLabel").textContent=remaining<0?"超時提醒":"單組倒數";
+  document.getElementById("timerLabel").textContent=!flowStarted?"等待開始":remaining<0?"超時提醒":"單組倒數";
   document.getElementById("elapsedTime").textContent=fmt(elapsed);
   const remain=programs.slice(currentIndex).reduce((sum,item,i)=>sum+(i===0?Math.max(remaining,0):item.duration*60),0);
   document.getElementById("remainTime").textContent=fmt(remain);
   const readyCount=programs.filter(x=>["ready","live","done"].includes(x.status)).length;
   document.getElementById("readyRate").textContent=`${Math.round(readyCount/programs.length*100)}%`;
-  document.getElementById("flowState").textContent=emergency?"緊急":hold?"Hold":statusText[p.status];
-  document.getElementById("flowState").className=`status ${emergency?"s-unready":statusClass[p.status]}`;
+  document.getElementById("flowState").textContent=emergency?"緊急":hold?"Hold":flowStarted?statusText[p.status]:"待機";
+  document.getElementById("flowState").className=`status ${emergency?"s-unready":flowStarted?statusClass[p.status]:"s-prep"}`;
   document.getElementById("holdBtn").textContent=hold?"解除 Hold":"Hold";
+  document.getElementById("startBtn").textContent=flowStarted?"流程已開始":"開始演出";
+  document.getElementById("startBtn").disabled=flowStarted;
   renderQueue();
 }
 function renderQueue(){
@@ -873,8 +877,21 @@ function sendCustomNotice(){
   sendTargetedNotice(text);
   input.value="";
 }
+function startFlow(){
+  if(emergency||flowStarted) return;
+  flowStarted=true;
+  current().status="live";
+  remaining=current().duration*60;
+  lastTick=Date.now();
+  sendNotice(`演出開始：${current().team}《${current().title}》。`);
+  renderAll();
+}
 function nextCue(){
   if(emergency) return;
+  if(!flowStarted){
+    startFlow();
+    return;
+  }
   programs[currentIndex].status="done";
   if(currentIndex<programs.length-1) currentIndex++;
   programs[currentIndex].status="live";
@@ -888,7 +905,7 @@ function nextCue(){
   renderAll();
 }
 function prevCue(){
-  if(emergency||currentIndex===0) return;
+  if(emergency||!flowStarted||currentIndex===0) return;
   programs[currentIndex].status="unready";
   currentIndex--;
   programs[currentIndex].status="live";
@@ -898,6 +915,10 @@ function prevCue(){
 }
 function skipCue(){
   if(emergency) return;
+  if(!flowStarted){
+    startFlow();
+    return;
+  }
   sendNotice(`已跳過：${current().team}《${current().title}》。`);
   nextCue();
 }
@@ -1010,10 +1031,10 @@ function renderPerformer(){
   select.value=String(selectedPerformer);
   const p=programs[selectedPerformer];
   const distance=selectedPerformer-currentIndex;
-  const stage=distance<0?"已演出結束":distance===0?"現在演出":distance===1?"下一組預備":distance===2?"下下組待命":`前面還有 ${distance} 組`;
+  const stage=!flowStarted&&distance===0?"尚未開始":distance<0?"已演出結束":distance===0?"現在演出":distance===1?"下一組預備":distance===2?"下下組待命":`前面還有 ${distance} 組`;
   document.getElementById("performerStage").textContent=stage;
   document.getElementById("performerTitle").textContent=`${p.team}《${p.title}》`;
-  document.getElementById("performerDetail").textContent=`${performerSession.name}（${performerSession.dept}） · 第 ${selectedPerformer+1} 組 · ${p.people} 人 · 組長 ${p.leader} · 狀態 ${statusText[p.status]} · 目前演出 ${current().team}《${current().title}》`;
+  document.getElementById("performerDetail").textContent=`${performerSession.name}（${performerSession.dept}） · 第 ${selectedPerformer+1} 組 · ${p.people} 人 · 組長 ${p.leader} · 狀態 ${flowStarted?statusText[p.status]:"待機"} · 目前${flowStarted?"演出":"預備"} ${current().team}《${current().title}》`;
   const myNotices=performerNoticesFor(selectedPerformer);
   const latest=myNotices[0];
   document.getElementById("performerLatest").innerHTML=latest ? `<strong>最新訊息</strong><span>${latest.text}</span>` : `<strong>最新訊息</strong><span>尚無訊息</span>`;
@@ -1023,7 +1044,7 @@ function renderPerformer(){
     const i=start+offset;
     return `<div class="mini-row ${i===currentIndex?"active":""} ${i===selectedPerformer?"mine":""}">
       <div class="mini-title">${pad(i+1)} ${item.team}《${item.title}》</div>
-      <div class="mini-sub">${i===currentIndex?"現在演出":i===selectedPerformer?"我的組別":statusText[item.status]} · ${item.people} 人</div>
+      <div class="mini-sub">${i===currentIndex?(flowStarted?"現在演出":"等待開始"):i===selectedPerformer?"我的組別":statusText[item.status]} · ${item.people} 人</div>
     </div>`;
   }).join("");
   document.getElementById("performerQueue").innerHTML=rows;
